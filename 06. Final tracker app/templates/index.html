@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FleetTrack</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg       : #0d0d0d;
+    --sidebar  : #141414;
+    --card     : #1e1e1e;
+    --yellow   : #f5d000;
+    --yellow2  : #ffd700;
+    --text     : #ffffff;
+    --subtext  : #888888;
+    --border   : #2a2a2a;
+    --green    : #00c853;
+    --red      : #ff3d3d;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* --- Sidebar --- */
+  .sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .logo-icon {
+    font-size: 28px;
+  }
+
+  .logo-text {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--yellow);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--subtext);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-left: 38px;
+  }
+
+  .sidebar-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* --- Form --- */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  select {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+
+  select:focus { border-color: var(--yellow); }
+
+  .start-btn {
+    background: var(--yellow);
+    color: #0d0d0d;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .start-btn:hover { background: var(--yellow2); transform: translateY(-1px); }
+  .start-btn:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+
+  /* --- Divider --- */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 4px 0;
+  }
+
+  /* --- Status badge --- */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--subtext);
+  }
+
+  .status-dot.active {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.5s infinite;
+  }
+
+  .status-dot.arrived { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* --- Metric cards --- */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metric-card.full { grid-column: span 2; }
+
+  .metric-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .metric-value {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--yellow);
+    line-height: 1;
+  }
+
+  .metric-unit {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--subtext);
+  }
+
+  /* --- Progress bar --- */
+  .progress-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-bg {
+    background: var(--border);
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--yellow), var(--yellow2));
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+
+  /* --- Route info --- */
+  .route-info {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: none;
+  }
+
+  .route-info.visible { display: block; }
+
+  .route-cities {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .city-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .route-arrow {
+    color: var(--yellow);
+    font-size: 16px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .route-meta {
+    display: flex;
+    gap: 16px;
+  }
+
+  .route-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .route-meta-label {
+    font-size: 10px;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+
+  .route-meta-value {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  /* --- Arrived banner --- */
+  .arrived-banner {
+    background: linear-gradient(135deg, #1a2a1a, #0d1a0d);
+    border: 1.5px solid var(--green);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    display: none;
+  }
+
+  .arrived-banner.visible { display: block; }
+  .arrived-emoji { font-size: 32px; margin-bottom: 6px; }
+  .arrived-text { font-size: 16px; font-weight: 900; color: var(--green); }
+  .arrived-sub { font-size: 12px; color: var(--subtext); margin-top: 4px; }
+
+  /* --- Map --- */
+  #map {
+    flex: 1;
+    height: 100vh;
+  }
+
+  /* Leaflet dark override */
+  .leaflet-tile { filter: brightness(0.9) contrast(1.1); }
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <span class="logo-icon">🚛</span>
+      <span class="logo-text">FleetTrack</span>
+    </div>
+    <div class="logo-sub">Live Route Simulator</div>
+  </div>
+
+  <div class="sidebar-body">
+
+    <!-- Source dropdown -->
+    <div class="form-group">
+      <label class="form-label">📍 Source</label>
+      <select id="sourceSelect" onchange="loadDestinations()">
+        {% for src in sources %}
+        <option value="{{ src }}">{{ src }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Destination dropdown -->
+    <div class="form-group">
+      <label class="form-label">🏁 Destination</label>
+      <select id="destSelect"></select>
+    </div>
+
+    <!-- Start button -->
+    <button class="start-btn" id="startBtn" onclick="startSimulation()">
+      ▶ Start Simulation
+    </button>
+
+    <hr class="divider">
+
+    <!-- Route info card -->
+    <div class="route-info" id="routeInfo">
+      <div class="route-cities">
+        <span class="city-name" id="srcLabel">—</span>
+        <span class="route-arrow">→</span>
+        <span class="city-name" id="dstLabel">—</span>
+      </div>
+      <div class="route-meta">
+        <div class="route-meta-item">
+          <span class="route-meta-label">Total Distance</span>
+          <span class="route-meta-value" id="totalDist">—</span>
+        </div>
+        <div class="route-meta-item">
+          <span class="route-meta-label">Est. Time</span>
+          <span class="route-meta-value" id="totalTime">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-row" id="statusRow" style="display:none">
+      <div class="status-dot active" id="statusDot"></div>
+      <span class="status-text" id="statusText">En Route</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-wrap" id="progressWrap" style="display:none">
+      <div class="progress-header">
+        <span class="metric-label">Progress</span>
+        <span class="metric-label" id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid" id="metricsGrid" style="display:none">
+      <div class="metric-card">
+        <span class="metric-label">Remaining</span>
+        <span class="metric-value" id="remDist">—</span>
+        <span class="metric-unit">kilometers</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">ETA</span>
+        <span class="metric-value" id="etaMin">—</span>
+        <span class="metric-unit">minutes</span>
+      </div>
+      <div class="metric-card full">
+        <span class="metric-label">Current Stop</span>
+        <span class="metric-value" id="stopCount">—</span>
+        <span class="metric-unit">waypoint</span>
+      </div>
+    </div>
+
+    <!-- Arrived banner -->
+    <div class="arrived-banner" id="arrivedBanner">
+      <div class="arrived-emoji">🎉</div>
+      <div class="arrived-text">Arrived!</div>
+      <div class="arrived-sub" id="arrivedSub">Delivered successfully</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<script>
+// --- Map setup ---
+const map = L.map('map', { zoomControl: true }).setView([18.5, 75.5], 7);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© CartoDB',
+  maxZoom: 19
+}).addTo(map);
+
+// --- Truck icon ---
+const truckIcon = L.divIcon({
+  html: '<div style="font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8))">🚛</div>',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  className: ''
+});
+
+const flagIcon = L.divIcon({
+  html: '<div style="font-size:24px;line-height:1">🏁</div>',
+  iconSize: [24, 24],
+  iconAnchor: [4, 24],
+  className: ''
+});
+
+let truckMarker = null;
+let flagMarker  = null;
+let travelledLine = null;
+let remainingLine = null;
+let ws = null;
+let allCoords = [];
+
+// --- Load destinations when source changes ---
+async function loadDestinations() {
+  const source = document.getElementById('sourceSelect').value;
+  const res = await fetch(`/destinations/${source}`);
+  const dsts = await res.json();
+  const sel = document.getElementById('destSelect');
+  sel.innerHTML = dsts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+// --- Start simulation ---
+async function startSimulation() {
+  // Reset UI
+  resetUI();
+
+  const source = document.getElementById('sourceSelect').value;
+  const dest   = document.getElementById('destSelect').value;
+
+  // Fetch route geometry
+  const res  = await fetch(`/route/${source}/${dest}`);
+  const data = await res.json();
+  allCoords  = data.coords;  // [[lat, lon], ...]
+
+  // Draw full route on map
+  if (remainingLine) map.removeLayer(remainingLine);
+  remainingLine = L.polyline(allCoords, {
+    color: '#f5d000',
+    weight: 4,
+    opacity: 0.5,
+    dashArray: '8 6'
+  }).addTo(map);
+
+  // Fit map to route
+  map.fitBounds(remainingLine.getBounds(), { padding: [40, 40] });
+
+  // Add destination flag
+  if (flagMarker) map.removeLayer(flagMarker);
+  flagMarker = L.marker(allCoords[allCoords.length - 1], { icon: flagIcon }).addTo(map);
+
+  // Show route info
+  document.getElementById('routeInfo').classList.add('visible');
+  document.getElementById('srcLabel').textContent   = source;
+  document.getElementById('dstLabel').textContent   = dest;
+  document.getElementById('totalDist').textContent  = `${data.distance_km} km`;
+  document.getElementById('totalTime').textContent  = `${round(data.duration_min / 60, 1)} hrs`;
+
+  // Show live panels
+  document.getElementById('statusRow').style.display   = 'flex';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('metricsGrid').style.display  = 'grid';
+  document.getElementById('startBtn').disabled = true;
+
+  // Open WebSocket
+  ws = new WebSocket(`ws://${location.host}/ws`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ source, destination: dest }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.arrived) {
+      // Show arrived state
+      document.getElementById('statusDot').className  = 'status-dot arrived';
+      document.getElementById('statusText').textContent = 'Delivered';
+      document.getElementById('arrivedBanner').classList.add('visible');
+      document.getElementById('arrivedSub').textContent =
+        `${source} → ${dest} completed`;
+      document.getElementById('startBtn').disabled = false;
+      return;
+    }
+
+    const pos = [msg.lat, msg.lon];
+
+    // Move truck marker
+    if (!truckMarker) {
+      truckMarker = L.marker(pos, { icon: truckIcon }).addTo(map);
+    } else {
+      truckMarker.setLatLng(pos);
+    }
+
+    // Update travelled path
+    const travelledCoords = allCoords.slice(0, msg.stop);
+    if (travelledLine) map.removeLayer(travelledLine);
+    travelledLine = L.polyline(travelledCoords, {
+      color: '#ffffff',
+      weight: 3,
+      opacity: 0.3
+    }).addTo(map);
+
+    // Update sidebar metrics
+    document.getElementById('remDist').textContent  = msg.remaining_km;
+    document.getElementById('etaMin').textContent   = msg.eta_min;
+    document.getElementById('stopCount').textContent = `${msg.stop} / ${msg.total_stops}`;
+    document.getElementById('progressPct').textContent = `${msg.progress}%`;
+    document.getElementById('progressBar').style.width  = `${msg.progress}%`;
+  };
+}
+
+function resetUI() {
+  if (ws) ws.close();
+  if (truckMarker)  { map.removeLayer(truckMarker);  truckMarker  = null; }
+  if (flagMarker)   { map.removeLayer(flagMarker);   flagMarker   = null; }
+  if (travelledLine){ map.removeLayer(travelledLine);travelledLine= null; }
+  if (remainingLine){ map.removeLayer(remainingLine);remainingLine= null; }
+
+  document.getElementById('arrivedBanner').classList.remove('visible');
+  document.getElementById('routeInfo').classList.remove('visible');
+  document.getElementById('statusRow').style.display    = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('metricsGrid').style.display  = 'none';
+  document.getElementById('statusDot').className = 'status-dot active';
+  document.getElementById('statusText').textContent = 'En Route';
+  document.getElementById('progressBar').style.width = '0%';
+}
+
+function round(val, dec) {
+  return Math.round(val * Math.pow(10, dec)) / Math.pow(10, dec);
+}
+
+// Load destinations on page load
+loadDestinations();
+</script>
+</body>
+</html>
